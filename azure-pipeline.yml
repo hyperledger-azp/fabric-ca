@@ -1,0 +1,42 @@
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+#trigger: none
+#pr:
+#- master
+#- release-1.4
+#- release-1.3
+#- release-1.2
+#- release-1.1
+
+variables:
+  GOROOT: 'usr/bin/go'
+  GOPATH: '/home/ubuntu/azure/1/go'
+  PATH: '$(GOROOT)/bin:$(GOPATH)/bin:$(GOPATH)/binaries/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin'
+  
+jobs:
+- job: VerifyBuild
+  pool:
+    image: vmImage: 'ubuntu-16.04'
+  condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master'))
+  steps:
+  - script: |
+      apt-get update
+      apt-get install libtool gcc make haveged python-minimal git -y
+
+      curl -fsSL https://get.docker.com -o get-docker.sh
+      sudo sh get-docker.sh
+      sudo systemctl enable docker
+
+      sudo curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+      sudo chmod +x /usr/local/bin/docker-compose
+
+      wget https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
+      tar -xzf go1.12.5.linux-amd64.tar.gz
+      sudo mv go /usr/bin
+  - script: mkdir -p '$(GOPATH)/src/github.com/hyperledger'
+  - checkout: self
+    path: 'go/src/github.com/hyperledger/fabric'
+    displayName: Checkout Fabric Code
+  - script: make unit-test
